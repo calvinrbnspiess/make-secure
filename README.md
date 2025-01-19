@@ -16,7 +16,14 @@ Generating a sample certificate pair can be done with the following command:
 openssl req -x509 -newkey rsa:4096 -keyout demo-crt/key.pem -out demo-crt/cert.pem  -sha256 -days 3650 -nodes -subj "/C=DE/ST=Rhineland-Palatinate/L=SampleCity/O=SampleOrganization/CN=localhost" -addext "subjectAltName=DNS:localhost,DNS:*.localhost,IP:127.0.0.1"
 ```
 
-We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/66839523/13353068) are given.
+We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/66839523/13353068) are given. Browsers won't trust the certificate, because it was not issued by a trusted CA.
+
+We can use [mkcert](https://github.com/FiloSottile/mkcert) to generate a locally trusted certificate. The following command will generate a certificate pair for localhost:
+
+mkcert -key-file demo-crt/key.pem -cert-file demo-crt/cert.pem localhost 127.0.0.1 ::1
+
+````bash
+
 
 ### Common file types
 
@@ -27,7 +34,7 @@ We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/668
 - .pem -> base64 encoded
 - .crt -> could be DER or PEM, means it is the public key (difference might not be clear by just checking file extension)
 - .key / key.pem -> private key
-```
+````
 
 [Read more at the Apache HTTP Server documentation](https://httpd.apache.org/docs/2.4/ssl/ssl_faq.html#aboutcerts).
 
@@ -35,8 +42,8 @@ Make sure to run the `install.sh` script inside the container using `docker exec
 
 You can enter the container using `docker exec -it tls-configurator-apache /bin/bash`.
 
-## macOS: Add certificate to system keychain
+The certificate is automatically installed in the container and the server is restarted.
 
-```bash
-sudo security import demo-crt/cert.pem  -k ~/Library/Keychains/login.keychain-db
-```
+You can check the page at [https://localhost:8443](https://localhost:8443). The certificate should be trusted by the browser.
+
+![Trusted certificate](assets/installed-certificate.png)
