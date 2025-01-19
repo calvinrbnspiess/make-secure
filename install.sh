@@ -2,8 +2,14 @@
 
 # make sure to install gum on ubuntu/debian
 
+# Check if the script is running on ubuntu/debian and if apt is available
+if ! command -v apt &> /dev/null; then
+    echo "This script requires apt but it's not installed. Exiting."
+    exit 1
+fi
+
 ## install dependencies
-apt-get -y update; apt-get -y install curl gpg coreutils ca-certificates
+apt -y update; apt -y install curl gpg coreutils ca-certificates
 
 ## install gum
 mkdir -p /etc/apt/keyrings
