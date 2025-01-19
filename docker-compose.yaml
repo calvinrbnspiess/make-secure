@@ -4,6 +4,7 @@ services:
     container_name: tls-configurator-apache
     ports:
       - "8282:80"
+      - "8443:443"
     volumes:
       - ./website:/usr/local/apache2/htdocs
       - ./demo-crt:/usr/local/apache2/certificates
