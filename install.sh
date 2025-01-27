@@ -29,15 +29,34 @@ gum style \
 
 # get server public address
 
+function testAvailability() {
+  # Check HTTP (port 80)
+  if curl -s --max-time 5 localhost:80 > /dev/null; then
+      http_accessible=true
+      echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTP okay')"
+  fi
+
+  # Check HTTPS (port 443)
+  if curl -s --max-time 5 localhost:443 > /dev/null; then
+      https_accessible=true
+      echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTPS okay')"
+  else
+    echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTPS not accessible')"
+  fi
+}
+
+# test availability
+
+http_accessible=false
+https_accessible=false
+
+testAvailability
+
+sleep 1
+
 # test current capabilities
 
 mkdir -p /tmp/tls-configurator
-
-rm -f /tmp/tls-configurator/testssl-before.json
-
-gum spin --spinner dot --title "Testing current capabilites using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-before.json localhost > /dev/null
-
-# print key features
 
 function print_testssl_feature() {
   local id="$1"
@@ -49,19 +68,41 @@ function print_testssl_feature() {
   echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' "$name")$(gum style --foreground 'black' ':') $(gum style --foreground '212' "$value")"
 }
 
-clear
+function testBefore() {
+  rm -f /tmp/tls-configurator/testssl-before.json
 
-gum style \
+  gum spin --spinner dot --title "Testing current capabilites using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-before.json localhost > /dev/null
+
+  clear
+
+  gum style \
 	--foreground 212 --border-foreground 212 --border double \
 	--align center --width 50 --margin "1 2" --padding "2 4" \
 	'Current Capabilities'
 
-print_testssl_feature "ALPN" "ALPN" /tmp/tls-configurator/testssl-before.json
-print_testssl_feature "TLS1" "TLS1" /tmp/tls-configurator/testssl-before.json
-print_testssl_feature "TLS1_2" "TLS1.2" /tmp/tls-configurator/testssl-before.json
-print_testssl_feature "TLS1_3" "TLS1.3" /tmp/tls-configurator/testssl-before.json
-print_testssl_feature "banner_server" "Banner Server" /tmp/tls-configurator/testssl-before.json
-print_testssl_feature "HTTP_status_code" "HTTP Status Code" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "ALPN" "ALPN" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "TLS1" "TLS1" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "TLS1_2" "TLS1.2" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "TLS1_3" "TLS1.3" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "banner_server" "Banner Server" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "HTTP_status_code" "HTTP Status Code" /tmp/tls-configurator/testssl-before.json
+
+  print_testssl_feature "cert_fingerprintSHA256" "Certificate Fingerprint" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "cert_caIssuers" "Certificate Issuer" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "cert_trust" "Certificate Trust" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "cert_chain_of_trust" "Certificate Chain of Trust" /tmp/tls-configurator/testssl-before.json
+  print_testssl_feature "cert_expirationStatus" "Certificate Expiration" /tmp/tls-configurator/testssl-before.json
+}
+
+if [[ "$https_accessible" == true ]]; then
+  testBefore
+fi
+
+# print key features
+
+sleep 1
+
+echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'Performing configuration ...')"
 
 ###
 # configure apache2    
@@ -87,9 +128,44 @@ output=$(apachectl configtest 2>&1)
 
 # Check if the output is "Syntax OK"
 if [[ "$output" == "Syntax OK" ]]; then
-    echo "$(gum style --bold --foreground '212' '> Apache configuration is valid! 🎉')"
+    echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'Apache configuration is valid! 🎉')"
 else
-    echo "$(gum style --bold --foreground '212' '> Error in Apache configuration! 😱')"
+    echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'Error in Apache configuration! 😱')"
     echo "$output"
 fi
+
 apachectl restart
+
+function testAfter() {
+  rm -f /tmp/tls-configurator/testssl-after.json
+
+  gum spin --spinner dot --title "Testing gained capabilities using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-after.json localhost > /dev/null
+
+  clear
+
+  gum style \
+  --foreground 212 --border-foreground 212 --border double \
+  --align center --width 50 --margin "1 2" --padding "2 4" \
+  'Gained capabilities ...'
+
+  print_testssl_feature "ALPN" "ALPN" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "TLS1" "TLS1" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "TLS1_2" "TLS1.2" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "TLS1_3" "TLS1.3" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "banner_server" "Banner Server" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "HTTP_status_code" "HTTP Status Code" /tmp/tls-configurator/testssl-after.json
+
+  print_testssl_feature "cert_fingerprintSHA256" "Certificate Fingerprint" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "cert_caIssuers" "Certificate Issuer" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "cert_trust" "Certificate Trust" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "cert_chain_of_trust" "Certificate Chain of Trust" /tmp/tls-configurator/testssl-after.json
+  print_testssl_feature "cert_expirationStatus" "Certificate Expiration" /tmp/tls-configurator/testssl-after.json
+}
+
+testAvailability
+
+if [[ "$https_accessible" == true ]]; then
+  testAfter
+else
+  echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTPS still not accessible! 😱')"
+fi
