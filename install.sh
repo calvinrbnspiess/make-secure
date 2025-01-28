@@ -29,15 +29,20 @@ gum style \
 
 # get server public address
 
+echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'Please provide the public address of the server.')"
+public_address=$(gum input --placeholder "Public address")
+
 function testAvailability() {
   # Check HTTP (port 80)
-  if curl -s --max-time 5 localhost:80 > /dev/null; then
+  if curl -s --max-time 5 $public_address:80 > /dev/null; then
       http_accessible=true
       echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTP okay')"
+  else
+    echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTP not accessible')"
   fi
 
   # Check HTTPS (port 443)
-  if curl -s --max-time 5 localhost:443 > /dev/null; then
+  if curl -s --max-time 5 $public_address:443 > /dev/null; then
       https_accessible=true
       echo "$(gum style --foreground 'black' '>') $(gum style --bold --foreground '212' 'HTTPS okay')"
   else
@@ -71,7 +76,7 @@ function print_testssl_feature() {
 function testBefore() {
   rm -f /tmp/tls-configurator/testssl-before.json
 
-  gum spin --spinner dot --title "Testing current capabilites using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-before.json localhost > /dev/null
+  gum spin --spinner dot --title "Testing current capabilites using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-before.json $public_address > /dev/null
 
   clear
 
@@ -139,7 +144,7 @@ apachectl restart
 function testAfter() {
   rm -f /tmp/tls-configurator/testssl-after.json
 
-  gum spin --spinner dot --title "Testing gained capabilities using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-after.json localhost > /dev/null
+  gum spin --spinner dot --title "Testing gained capabilities using testssl ..." -- testssl --jsonfile /tmp/tls-configurator/testssl-after.json $public_address > /dev/null
 
   clear
 
