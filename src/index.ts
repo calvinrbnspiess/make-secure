@@ -1,6 +1,10 @@
 import { Command } from "@cliffy/command";
 
-import { installDependencies, runTestssl } from "./analysis/testssl.ts";
+import {
+  installDependencies,
+  printSummary,
+  runTestssl,
+} from "./analysis/testssl.ts";
 
 await new Command()
   .name("make-secure")
@@ -9,6 +13,6 @@ await new Command()
   .action(async () => {
     await installDependencies();
 
-    await runTestssl("google.com");
+    printSummary(await runTestssl("google.com"));
   })
   .parse();
