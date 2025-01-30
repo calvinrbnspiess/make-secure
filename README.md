@@ -47,3 +47,15 @@ The certificate is automatically installed in the container and the server is re
 You can check the page at [https://localhost:8443](https://localhost:8443). The certificate should be trusted by the browser.
 
 ![Trusted certificate](assets/installed-certificate.png)
+
+# Building binaries
+
+deno run build
+
+# Running the tests
+
+cd ./tests && docker compose up -d
+docker exec tls-configurator-apache mkdir -p /tmp/make-secure
+docker cp bin/ tls-configurator-apache:/tmp/make-secure
+docker exec -it tls-configurator-apache /bin/bash
+./tmp/make-secure/linux/arm64/make-secure (on arm64 platform)
