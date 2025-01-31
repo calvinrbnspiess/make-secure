@@ -54,8 +54,10 @@ deno run build
 
 # Running the tests
 
-cd ./tests && docker compose up -d
+deno run build
+docker compose -f tests/docker-compose.yaml up -d
+docker exec tls-configurator-apache rm -rf /tmp/make-secure
 docker exec tls-configurator-apache mkdir -p /tmp/make-secure
-docker cp bin/ tls-configurator-apache:/tmp/make-secure
+docker cp bin tls-configurator-apache:/tmp/make-secure
 docker exec -it tls-configurator-apache /bin/bash
-./tmp/make-secure/linux/arm64/make-secure (on arm64 platform)
+/tmp/make-secure/bin/linux/arm64/make-secure (on arm64 platform)

@@ -15,13 +15,13 @@ await new Command()
   .action(async () => {
     await installDependencies();
 
-    const servername: string = await Input.prompt({
+    const serverName: string = await Input.prompt({
       message: `How is the server reachable publicly?`,
       default: "localhost",
       minLength: 3,
     });
 
-    const { httpAvailable, httpsAvailable } = await checkConnection(servername);
+    const { httpAvailable, httpsAvailable } = await checkConnection(serverName);
 
     if (httpAvailable) {
       console.log("HTTP okay");
@@ -41,6 +41,9 @@ await new Command()
 
     //printSummary(await runTestssl(servername));
 
+    const certFile = "/usr/local/apache2/certificates/cert.pem";
+    const certKeyFile = "/usr/local/apache2/certificates/cert.pem";
+
     const webserver: string = await Select.prompt({
       message: "What webserver do you use?",
       options: [
@@ -55,9 +58,9 @@ await new Command()
     // pick runUpgrade() function dynamically based on webserver from ./webserver folder
     const { runUpgrade } = await import(`./webserver/${webserver}.ts`);
 
-    await runUpgrade({ servername });
+    await runUpgrade({ serverName: serverName, certFile, certKeyFile });
 
-    const networkTestAfterUpgrade = await checkConnection(servername);
+    const networkTestAfterUpgrade = await checkConnection(serverName);
 
     if (networkTestAfterUpgrade.httpAvailable) {
       console.log("HTTP okay");
@@ -74,7 +77,7 @@ await new Command()
       Deno.exit(1);
     }
 
-    printSummary(await runTestssl(servername));
+    printSummary(await runTestssl(serverName));
 
     console.log(`Completed.`);
   })

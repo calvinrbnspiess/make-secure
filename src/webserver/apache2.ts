@@ -1,95 +1,37 @@
-// Set the ServerName directive in the Apache configuration (do not replace comments, remove duplicates, append if not present)
-const setServerName = async ({
-  apache2ConfigurationFile,
-  serverName,
-}: {
-  apache2ConfigurationFile: string;
-  serverName: string;
-}) => {
-  console.log(`Updating server name.`);
-  const command = new Deno.Command("sed", {
-    args: [
-      "-i",
-      `/^[^#]*ServerName /d; $a ServerName ${serverName}`,
-      apache2ConfigurationFile,
-    ],
+const ensureApacheCtlIsInstalled = async () => {
+  const apacheCtlCommand = new Deno.Command("sh", {
+    args: ["-c", "command -v apachectl"],
   });
 
-  const output = await command.output();
+  const output = await apacheCtlCommand.output();
 
-  console.log(new TextDecoder().decode(output.stderr));
+  const aptExecutablePath = new TextDecoder().decode(output.stdout).trim();
+
+  if (aptExecutablePath !== "/usr/local/apache2/bin/apachectl") {
+    console.error("apachectl is not available on your system.");
+    Deno.exit(1);
+  }
 };
 
-const enableSSL = async ({
-  apache2ConfigurationFile,
-}: {
-  apache2ConfigurationFile: string;
-}) => {
-  console.log(`Enabling SSL/TLS.`);
-  const command = new Deno.Command("sed", {
-    args: [
-      "-i",
-      "-e",
-      "s/^#(Include .*httpd-ssl.conf)/\\1/",
-      "-e",
-      "s/^#(LoadModule .*mod_ssl.so)/\\1/",
-      "-e",
-      "s/^#(LoadModule .*mod_socache_shmcb.so)/\\1/",
-      apache2ConfigurationFile,
-    ],
-  });
+const ensureDirective = (
+  config: string,
+  type: string,
+  directive: string
+): string => {
+  const directiveRegex = new RegExp(
+    `^#?\\s*${type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+\\S+:\\d+$`,
+    "m"
+  );
 
-  const output = await command.output();
+  console.log(`Ensuring ${type} directive: ${directive}`);
 
-  console.log(new TextDecoder().decode(output.stderr));
-};
+  // If the exact directive exists (commented or uncommented), ensure it's uncommented
+  if (directiveRegex.test(config)) {
+    return config.replace(directiveRegex, directive);
+  }
 
-const addCertificateFiles = async ({
-  apache2SSLConfiguration,
-}: {
-  apache2SSLConfiguration: string;
-}) => {
-  const certFile = "/usr/local/apache2/certificates/cert.pem";
-  const certKeyFile = "/usr/local/apache2/certificates/cert.pem";
-
-  console.log(`Adding certificate files.`);
-
-  // Make sure to set up certificate files inside <VirtualHost> blocks
-  const command1 = new Deno.Command("sed", {
-    args: [
-      "-i",
-      "/<VirtualHost/,/<\\/VirtualHost>/",
-      "{",
-      "/^[^#]*SSLCertificateFile /d",
-      `/<VirtualHost.*>/a\\`,
-      "SSLCertificateFile",
-      certFile,
-      "}",
-      apache2SSLConfiguration,
-    ],
-  });
-
-  const output1 = await command1.output();
-
-  console.log(new TextDecoder().decode(output1.stderr));
-
-  const command2 = new Deno.Command("sed", {
-    args: [
-      "-i",
-      "/<VirtualHost/,/<\\/VirtualHost>/",
-      "{",
-      "/^[^#]*SSLCertificateKeyFile /d",
-      `/<VirtualHost.*>/a\\`,
-      "SSLCertificateKeyFile",
-      certKeyFile,
-      "}",
-      apache2SSLConfiguration,
-    ],
-  });
-
-  const output2 = await command2.output();
-
-  console.log(new TextDecoder().decode(output2.stderr));
+  // If it doesn't exist, append it at the end of the file
+  return config.trim() + `\n${directive}\n`;
 };
 
 const checkApache2Configuration = async () => {
@@ -114,19 +56,58 @@ const restartApache2 = async () => {
   console.log(new TextDecoder().decode(output.stderr));
 };
 
-export const runUpgrade = async ({ serverName }: { serverName: string }) => {
+const addCertificateFiles = async ({
+  apache2SSLConfiguration,
+  certFile,
+  certKeyFile,
+}: {
+  apache2SSLConfiguration: string;
+  certFile: string;
+  certKeyFile: string;
+}) => {
+  console.log(`Adding certificate files.`, certFile, certKeyFile);
+};
+
+export const runUpgrade = async ({
+  serverName,
+  certFile,
+  certKeyFile,
+}: {
+  serverName: string;
+  certFile: string;
+  certKeyFile: string;
+}) => {
   const apache2ConfigurationFile = "/usr/local/apache2/conf/httpd.conf";
   const apache2SSLConfiguration =
     "/usr/local/apache2/conf/extra/httpd-ssl.conf";
 
-  await setServerName({
-    serverName,
-    apache2ConfigurationFile: apache2ConfigurationFile,
-  });
-  await enableSSL({ apache2ConfigurationFile: apache2ConfigurationFile });
-  await addCertificateFiles({
-    apache2SSLConfiguration: apache2SSLConfiguration,
-  });
+  ensureApacheCtlIsInstalled();
+
+  let config = await Deno.readTextFile(apache2ConfigurationFile);
+
+  // Set the ServerName directive in the Apache configuration (do not replace comments, remove duplicates, append if not present)
+  config = ensureDirective(config, "ServerName", `ServerName ${serverName}`);
+
+  // Enable SSL
+  config = ensureDirective(
+    config,
+    "Include",
+    `Include ${apache2SSLConfiguration}`
+  );
+  config = ensureDirective(
+    config,
+    "LoadModule",
+    "LoadModule ssl_module modules/mod_ssl.so"
+  );
+  config = ensureDirective(
+    config,
+    "LoadModule",
+    "LoadModule socache_shmcb_module modules/mod_socache_shmcb.so"
+  );
+
+  await Deno.writeTextFile(apache2ConfigurationFile, config);
+
+  await addCertificateFiles({ apache2SSLConfiguration, certFile, certKeyFile });
 
   if (await checkApache2Configuration()) {
     console.log("Apache configuration is valid! 🎉");
