@@ -114,3 +114,5 @@ Thus, you can check the page at [https://localhost:8443](https://localhost:8443)
 The page should look like this:
 
 ![Secure page](assets/testpage-secure.png)
+
+You can find a detailed log [here](https://github.com/calvinrbnspiess/make-secure/blob/main/assets/full-log.png).
