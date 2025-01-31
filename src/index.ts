@@ -16,7 +16,7 @@ await new Command()
     await installDependencies();
 
     const serverName: string = await Input.prompt({
-      message: `How is the server reachable publicly?`,
+      message: `How is the server reachable publicly? (Do not provide http:// or https:// in front of the address)`,
       default: "localhost",
       minLength: 3,
     });
@@ -35,11 +35,10 @@ await new Command()
     if (httpsAvailable) {
       console.log("HTTPS okay");
     } else {
-      console.error("HTTPS not okay");
-      Deno.exit(1);
+      console.error("HTTPS not okay. We will try to fix that.");
     }
 
-    //printSummary(await runTestssl(servername));
+    printSummary(await runTestssl(serverName, { httpOnly: !httpsAvailable }));
 
     const certFile: string = await Input.prompt({
       message: `Where is your certificate file located? This is the public key part which is shared to the world.`,
@@ -82,13 +81,14 @@ await new Command()
     if (networkTestAfterUpgrade.httpsAvailable) {
       console.log("HTTPS okay");
     } else {
-      console.error("HTTPS still not available");
-      Deno.exit(1);
+      console.log(
+        "HTTPS still not available. (This could be due to a self-signed certificate which is not trusted by this wizard. Don't worry, a check with testssl.sh will be performed now)"
+      );
     }
 
     printSummary(await runTestssl(serverName));
 
-    console.log(`Completed.`);
+    console.log(`🎉 Completed.`);
   })
 
   .parse();

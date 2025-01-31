@@ -19,9 +19,24 @@ export const installDependencies = async () => {
   console.log("Successfully installed testssl.sh.");
 };
 
-export const runTestssl = async (publicAddress: string) => {
+export const runTestssl = async (
+  publicAddress: string,
+  options = { httpOnly: false }
+) => {
+  let { httpOnly } = options;
+
+  // check if publicAddress already includes a port
+  if (publicAddress.includes(":")) {
+    console.log(
+      "Port already included in public address. This may lead to unexpected results."
+    );
+    httpOnly = false;
+  }
+
+  const addressToVerify = `${publicAddress}${httpOnly ? ":80" : ""}`;
+
   console.log(
-    `Running testssl.sh against ${publicAddress} for further analysis. This process can take some minutes ...`
+    `Running testssl.sh against ${addressToVerify} for further analysis. This process can take some minutes ...`
   );
 
   const date = new Date();
@@ -34,12 +49,22 @@ export const runTestssl = async (publicAddress: string) => {
   await Deno.writeTextFile(testsslOutputPath, "", { create: true });
 
   const runTestsslCommand = new Deno.Command("testssl", {
-    args: ["--jsonfile", testsslOutputPath, publicAddress],
+    args: ["--jsonfile", testsslOutputPath, addressToVerify],
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
   });
 
-  const output = await runTestsslCommand.output();
+  const process = runTestsslCommand.spawn();
 
-  console.log(new TextDecoder().decode(output.stderr));
+  const writer = process.stdin.getWriter();
+  await writer.write(new TextEncoder().encode("yes"));
+  writer.releaseLock();
+  await process.stdin.close();
+
+  const result = await process.output();
+
+  console.log(new TextDecoder().decode(result.stderr));
 
   try {
     const testsslOutput = await Deno.readTextFile(testsslOutputPath);
@@ -62,6 +87,8 @@ type TestSSLEntry = {
 
 export const printSummary = (jsonOutput: TestSSLEntry[]) => {
   let properties = {
+    optimal_proto: "Protocol / Quick Summary",
+    scanTime: "Scan Time",
     ALPN: "ALPN",
     TLS1: "TLS1",
     TLS1_2: "TLS1.2",

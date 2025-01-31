@@ -5,7 +5,7 @@ Make sure to execute the binaries matching your platform and processor architect
 
 ## Testing
 
-The project is tested against a docker compoose environment running apache2. The server will spin up without tls/ssl configuration and serve a basic web page available on 127.0.0.1:8080. The server can be configured to use the provided certificate pair.
+The project is tested against a docker compose environment running apache2. The server will spin up without tls/ssl configuration and serve a basic web page available on http://127.0.0.1:8282. The server can be configured to use the provided certificate pair.
 
 Generating a sample certificate pair can be done with the following command:
 
@@ -17,9 +17,9 @@ We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/668
 
 Thankfully, there is a simple way to make the browser trust self-signed certificates. The tool [mkcert](https://github.com/FiloSottile/mkcert) generates certificates signed by a locally trusted CA. Using this tool the browser won't show any warnings.
 
-We can use [mkcert](https://github.com/FiloSottile/mkcert) to generate a locally trusted certificate. The following command will generate a certificate pair for localhost:
+The following command will generate a certificate pair using mkcert for localhost:
 
-````bash
+```bash
 mkcert -install # to make sure the locally trusted CA is installed
 mkcert -key-file tests/demo-crt/key.pem -cert-file tests/demo-crt/cert.pem localhost 127.0.0.1 ::1 # generate a certificate pair for localhost
 ```
@@ -33,7 +33,7 @@ mkcert -key-file tests/demo-crt/key.pem -cert-file tests/demo-crt/cert.pem local
 - .pem -> base64 encoded
 - .crt -> could be DER or PEM, means it is the public key (difference might not be clear by just checking file extension)
 - .key / key.pem -> private key
-````
+```
 
 [Read more at the Apache HTTP Server documentation](https://httpd.apache.org/docs/2.4/ssl/ssl_faq.html#aboutcerts).
 
@@ -66,17 +66,25 @@ The script will guide you through the process of securing your web server. The f
 deno run build
 ```
 
+Binaries are stored in the `bin` directory.
+
 # Running the tests
 
 Make sure to have a deno runtime installed. You can look at the [official documentation](https://deno.land/manual/getting_started/installation) for more information.
 
+Alternatively, you can run deno in a docker container: `docker-compose -f deno.docker-compose.yaml up -d` and `docker exec -it make-secure-dev-environment /bin/bash`. In the container you can now run deno with `deno run dev`.
+
+To run a build and run the make-secure script, execute the following commands:
+
 ```bash
 deno run build
+docker compose -f tests/docker-compose.yaml down
 docker compose -f tests/docker-compose.yaml up -d
 docker exec tls-configurator-apache rm -rf /tmp/make-secure
 docker exec tls-configurator-apache mkdir -p /tmp/make-secure
 docker cp bin tls-configurator-apache:/tmp/make-secure
 ````
+(this is the same as executing the `deployToDocker.sh`script)
 
 You can enter the container using `docker exec -it tls-configurator-apache /bin/bash`.
 
@@ -88,8 +96,8 @@ Now you can run the compiled binary:
 
 The certificate files inside `tests/demo-crt/` are mounted inside the container at `/usr/local/apache2/certificates/`.
 
-When asked for the certificate path, provide /usr/local/apache2/certificates/cert.pem
-When asked for the key path, provide /usr/local/apache2/certificates/key.pem
+When asked for the certificate path, provide `/usr/local/apache2/certificates/cert.pem`
+When asked for the key path, provide `/usr/local/apache2/certificates/key.pem`
 
 ## Verification
 

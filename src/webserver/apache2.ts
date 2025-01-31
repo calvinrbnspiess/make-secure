@@ -16,22 +16,70 @@ const ensureApacheCtlIsInstalled = async () => {
 const ensureDirective = (
   config: string,
   type: string,
-  directive: string
+  directive: string,
+  { silent = false } = {}
 ): string => {
+  // Regex to match the directive, accounting for leading spaces, comments, and multiple lines
   const directiveRegex = new RegExp(
-    `^#?\\s*${type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+\\S+:\\d+$`,
+    `^\\s*#?\\s*${type.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    )}\\s+\\S+(:\\d+)?\\s*$`,
     "m"
   );
 
-  console.log(`Ensuring ${type} directive: ${directive}`);
+  if (!silent) {
+    console.log(`Ensuring ${type} directive: ${directive}`);
+  }
 
-  // If the exact directive exists (commented or uncommented), ensure it's uncommented
+  // If the exact directive exists (commented or uncommented)
   if (directiveRegex.test(config)) {
     return config.replace(directiveRegex, directive);
   }
 
   // If it doesn't exist, append it at the end of the file
   return config.trim() + `\n${directive}\n`;
+};
+
+const ensureDirectiveInBlock = (
+  config: string,
+  type: string,
+  directive: string,
+  block: string,
+  defaultArguments = ""
+): string => {
+  console.log(`Ensuring ${type} directive in ${block}: ${directive}`);
+
+  const blockRegex = new RegExp(
+    `<\\s*${block}\\s+[^>]*>([\\s\\S]*?)<\\s*/\\s*${block}\\s*>`,
+    "m"
+  );
+
+  // extract block arguments or use default arguments
+  const blockArgumentsRegex = new RegExp(`/<\s*${block}\s+([^>]+)>/`);
+  const match = config.match(blockArgumentsRegex);
+
+  const blockArguments = match ? match[0] : defaultArguments;
+  const blockMatch = config.match(blockRegex);
+
+  // if no block is found, add it to the end of the file
+  if (!blockMatch || blockMatch.length === 0) {
+    console.log(`Block ${block} not found in configuration file.`);
+    return (
+      config + `\n<${block} ${blockArguments}>\n${directive}\n</${block}>\n`
+    );
+  }
+
+  const blockContent = blockMatch[1];
+
+  const updatedBlockContent = ensureDirective(blockContent, type, directive, {
+    silent: true,
+  });
+
+  return config.replace(
+    blockMatch[0],
+    `<${block} ${blockArguments}>\n${updatedBlockContent}\n</${block}>`
+  );
 };
 
 const checkApache2Configuration = async () => {
@@ -41,9 +89,14 @@ const checkApache2Configuration = async () => {
 
   const output = await command.output();
 
-  console.log(new TextDecoder().decode(output.stderr));
+  const error = new TextDecoder().decode(output.stderr);
 
-  return new TextDecoder().decode(output.stdout) === "Syntax OK";
+  if (error.match(/Syntax OK/)) {
+    return true;
+  } else {
+    console.log(error);
+    return false;
+  }
 };
 
 const restartApache2 = async () => {
@@ -56,16 +109,48 @@ const restartApache2 = async () => {
   console.log(new TextDecoder().decode(output.stderr));
 };
 
-const addCertificateFiles = async ({
+const updateSSLConfig = async ({
+  serverName,
   apache2SSLConfiguration,
   certFile,
   certKeyFile,
 }: {
+  serverName: string;
   apache2SSLConfiguration: string;
   certFile: string;
   certKeyFile: string;
 }) => {
   console.log(`Adding certificate files.`, certFile, certKeyFile);
+
+  let config = await Deno.readTextFile(apache2SSLConfiguration);
+
+  const defaultBlockArguments = "_default_:443";
+
+  config = ensureDirectiveInBlock(
+    config,
+    "ServerName",
+    `ServerName ${serverName}`,
+    "VirtualHost",
+    defaultBlockArguments
+  );
+
+  config = ensureDirectiveInBlock(
+    config,
+    "SSLCertificateFile",
+    `SSLCertificateFile ${certFile}`,
+    "VirtualHost",
+    defaultBlockArguments
+  );
+
+  config = ensureDirectiveInBlock(
+    config,
+    "SSLCertificateKeyFile",
+    `SSLCertificateKeyFile ${certKeyFile}`,
+    "VirtualHost",
+    defaultBlockArguments
+  );
+
+  await Deno.writeTextFile(apache2SSLConfiguration, config);
 };
 
 export const runUpgrade = async ({
@@ -107,7 +192,12 @@ export const runUpgrade = async ({
 
   await Deno.writeTextFile(apache2ConfigurationFile, config);
 
-  await addCertificateFiles({ apache2SSLConfiguration, certFile, certKeyFile });
+  await updateSSLConfig({
+    apache2SSLConfiguration,
+    certFile,
+    certKeyFile,
+    serverName,
+  });
 
   if (await checkApache2Configuration()) {
     console.log("Apache configuration is valid! 🎉");
