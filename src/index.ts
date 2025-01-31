@@ -41,8 +41,17 @@ await new Command()
 
     //printSummary(await runTestssl(servername));
 
-    const certFile = "/usr/local/apache2/certificates/cert.pem";
-    const certKeyFile = "/usr/local/apache2/certificates/cert.pem";
+    const certFile: string = await Input.prompt({
+      message: `Where is your certificate file located? This is the public key part which is shared to the world.`,
+      default: "/usr/local/apache2/certificates/cert.pem",
+      minLength: 3,
+    });
+
+    const certKeyFile: string = await Input.prompt({
+      message: `Where is your certificate key file located? This is the private key part which should be kept secret.`,
+      default: "/usr/local/apache2/certificates/key.pem",
+      minLength: 3,
+    });
 
     const webserver: string = await Select.prompt({
       message: "What webserver do you use?",
