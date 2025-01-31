@@ -13,7 +13,7 @@ Generating a sample certificate pair can be done with the following command:
 openssl req -x509 -newkey rsa:4096 -keyout demo-crt/key.pem -out demo-crt/cert.pem  -sha256 -days 3650 -nodes -subj "/C=DE/ST=Rhineland-Palatinate/L=SampleCity/O=SampleOrganization/CN=localhost" -addext "subjectAltName=DNS:localhost,DNS:*.localhost,IP:127.0.0.1"
 ```
 
-We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/66839523/13353068) are given. Browsers won't trust the certificate, because it was not issued by a trusted CA.
+We need to make sure [Subject Alternative Names](https://stackoverflow.com/a/66839523/13353068) are given. Despite that, browsers won't trust the certificate, because it was not issued by a trusted CA.
 
 Thankfully, there is a simple way to make the browser trust self-signed certificates. The tool [mkcert](https://github.com/FiloSottile/mkcert) generates certificates signed by a locally trusted CA. Using this tool the browser won't show any warnings.
 
@@ -66,7 +66,7 @@ The script will guide you through the process of securing your web server. The f
 deno run build
 ```
 
-Binaries are stored in the `bin` directory.
+Binaries are stored in the `bin` directory. Go to: https://github.com/calvinrbnspiess/make-secure/tree/main/bin
 
 # Running the tests
 
@@ -84,7 +84,7 @@ docker exec tls-configurator-apache rm -rf /tmp/make-secure
 docker exec tls-configurator-apache mkdir -p /tmp/make-secure
 docker cp bin tls-configurator-apache:/tmp/make-secure
 ````
-(this is the same as executing the `deployToDocker.sh`script)
+(this is the same as executing the `deployToDocker.sh` script)
 
 You can enter the container using `docker exec -it tls-configurator-apache /bin/bash`.
 
@@ -96,15 +96,21 @@ Now you can run the compiled binary:
 
 The certificate files inside `tests/demo-crt/` are mounted inside the container at `/usr/local/apache2/certificates/`.
 
-When asked for the certificate path, provide `/usr/local/apache2/certificates/cert.pem`
-When asked for the key path, provide `/usr/local/apache2/certificates/key.pem`
+When asked for the certificate path, provide `/usr/local/apache2/certificates/cert.pem`.
+When asked for the key path, provide `/usr/local/apache2/certificates/key.pem`.
 
 ## Verification
 
 The page should be reachable over HTTP at [http://localhost:8282](http://localhost:8282). Before running the tests, the server should not be reachable over HTTPS.
+
+![Unsecure page](assets/testpage-unsecure.png)
 
 After running the wizard succesfully, the server should be reachable over HTTPS. Due to the local environment, the page is not reachable over default port `:80` and `:443`.
 
 Thus, you can check the page at [https://localhost:8443](https://localhost:8443). The certificate should be trusted by the browser and the page should display a closed lock illustration.
 
 ![Trusted certificate](assets/installed-certificate.png)
+
+The page should look like this:
+
+![Secure page](assets/testpage-secure.png)

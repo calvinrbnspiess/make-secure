@@ -66,6 +66,9 @@ await new Command()
     // pick runUpgrade() function dynamically based on webserver from ./webserver folder
     const { runUpgrade } = await import(`./webserver/${webserver}.ts`);
 
+    /**
+     * This part uses the *runUpgrade* function from the selected webserver module.
+     */
     await runUpgrade({ serverName: serverName, certFile, certKeyFile });
 
     const networkTestAfterUpgrade = await checkConnection(serverName);
